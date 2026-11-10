@@ -162,7 +162,7 @@ def classify_message(message: str, model: str = MODEL) -> dict[str, Any]:
         ],
         format=OUTPUT_SCHEMA,
         think=False,
-        options={"temperature": 0},
+        options={"temperature": 0, "num_ctx": 2048},
     )
     result = parse_output(response.message.content)
     if result["confidence"] < MIN_CONFIDENCE:
@@ -197,7 +197,7 @@ def classify_department(
         ],
         format=DEPARTMENT_SCHEMA,
         think=False,
-        options={"temperature": 0},
+        options={"temperature": 0, "num_ctx": 2048},
     )
     result = parse_department_output(response.message.content)
     if result["confidence"] < MIN_CONFIDENCE:
