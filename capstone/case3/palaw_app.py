@@ -44,6 +44,8 @@ if message:
                 st.write("✓ Decision schema validated")
                 status.update(label="Classification and routing complete", state="complete", expanded=False)
 
+            st.caption(f"Category confidence (model estimate): {result['confidence']:.0%}")
+
             if result["category"] == "COMPLAINT":
                 st.error("**COMPLAINT**")
             else:
@@ -62,7 +64,7 @@ if message:
             st.session_state.messages.append({
                 "role": "assistant",
                 "content": (
-                    f"**Category:** {result['category']}\n\n"
+                    f"**Category:** {result['category']} ({result['confidence']:.0%} model-estimated confidence)\n\n"
                     f"**Routed team:** {TEAM_LABELS[result['routed_team']]}\n\n"
                     f"**Reason:** {result['reason']}\n\n"
                     f"**Next action:** {ACTION_LABELS[result['next_action']]}\n\n"
