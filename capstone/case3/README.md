@@ -9,42 +9,45 @@ Implement the first AI-supported activity in the Pa-Law swimlane: classify an em
 This POC classifies intent only. It does not retrieve DOLE policies, interpret law, decide whether a complaint is legally valid, or provide legal advice.
 
 ## Alignment with the existing UP_NEC examples
-Uses the same stack and calling pattern as \`exercise1/Case 3.py\`: Python, Ollama, \`qwen3.5:4b\`, deterministic temperature, JSON-schema output, and Python-side validation. The user's PALAW slide deck identifies DOLE policies as the POC input and uses employee examples such as emergency leave, missing 13th-month pay, deductions, and workplace complaints.
+Uses the same stack and calling pattern as `exercise1/Case 3.py`: Python, Ollama, `qwen3.5:4b`, deterministic temperature, JSON-schema output, and Python-side validation. The Pa-Law deck identifies DOLE policies as the POC input and includes employee examples such as emergency leave, missing 13th-month pay, deductions, and workplace complaints.
 
 ## Setup
 Install and start Ollama, then pull the model:
 
-\`\`\`bash
+```bash
 ollama pull qwen3.5:4b
-\`\`\`
+```
 
-Create and activate a virtual environment, then install the root project requirements (they already include \`ollama\` and \`pytest\`):
+Create and activate a virtual environment, then install the root requirements and the Case 3 UI dependency:
 
-\`\`\`bash
+```powershell
 python -m venv .venv
-# Windows PowerShell
-.venv\\Scripts\\Activate.ps1
+.venv\Scripts\Activate.ps1
 pip install -r requirements.txt
-\`\`\`
+pip install -r capstone/case3/requirements.txt
+```
 
-## Run
+## Run the command-line classifier
+
+```bash
+python capstone/case3/palaw_classifier.py
+```
+
+## Run the Streamlit loading-panel interface
+
 From the repository root:
 
-\`\`\`bash
-python capstone/case3/palaw_classifier.py
-\`\`\`
+```bash
+streamlit run capstone/case3/palaw_app.py
+```
 
-Or import the function:
-
-\`\`\`python
-from capstone.case3.palaw_classifier import classify_message
-print(classify_message("Bakit wala akong 13th month pay?"))
-\`\`\`
+The UI shows message receipt, model processing, and successful output validation. Since the current classifier makes one blocking Ollama request, the UI does not claim to expose internal token-by-token reasoning or fabricated percentage progress.
 
 ## Tests
-\`\`\`bash
+
+```bash
 pytest -q capstone/case3/test_palaw_classifier.py
-\`\`\`
+```
 
 Unit tests mock the Ollama call, so they do not require the model to be running.
 
