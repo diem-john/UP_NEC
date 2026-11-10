@@ -1,14 +1,15 @@
 # Pa-Law POC — Unified Classification and Routing
 
 ## Goal and scope
-The POC accepts one employee message and returns a single structured decision with exactly four fields:
+The POC accepts one employee message and returns a single structured decision with exactly five fields:
 
 - `category`: `INQUIRY` or `COMPLAINT`
+- `confidence`: model-reported category confidence from `0.0` to `1.0` (displayed as a percentage)
 - `routed_team`: `HR`, `LEGAL`, `ACCOUNTING`, or `IT_SUPPORT`
 - `reason`: concise explanation for the classification and routing
 - `next_action`: `ROUTE_TO_LEGAL_AI_ASSISTANT` or `ROUTE_TO_OTHER_TEAM`
 
-The model performs category classification and team routing in one Ollama call using the exact JSON schema requested for this POC.
+The model performs category classification and team routing in one Ollama call using the JSON schema. The confidence value is a model-reported estimate, not a statistically calibrated probability; it should be evaluated against a labelled dataset before being used for automated decisions.
 
 ## Routing rules
 | Routed team | Typical concerns | Next action |
@@ -24,7 +25,7 @@ The next-action mapping is also validated deterministically in Python: LEGAL mus
 1. Validate the employee message.
 2. Send it to Qwen 3.5:4B with the combined system prompt and JSON schema.
 3. Parse the JSON response.
-4. Validate exact keys, enum values, non-empty reason, and the team/next-action relationship.
+4. Validate exact keys, enum values, confidence range, non-empty reason, and the team/next-action relationship.
 5. Display the structured decision in Streamlit.
 
 ## Model and tools
