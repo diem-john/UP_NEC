@@ -1,37 +1,35 @@
-# Pa-Law POC — Complaint/Inquiry Classification and Department Routing
+# Pa-Law POC — Unified Classification and Routing
 
 ## Goal and scope
-This POC performs two sequential classification tasks on an employee's message:
+The POC accepts one employee message and returns a single structured decision with exactly five fields:
 
-1. **Message classification:** `complaint` or `inquiry`.
-2. **Department routing:** identify the single most relevant receiving office department.
+- `category`: `INQUIRY` or `COMPLAINT`
+- `confidence`: model-reported category confidence from `0.0` to `1.0` (displayed as a percentage)
+- `routed_team`: `HR`, `LEGAL`, `ACCOUNTING`, or `IT_SUPPORT`
+- `reason`: concise explanation for the classification and routing
+- `next_action`: `ROUTE_TO_LEGAL_AI_ASSISTANT` or `ROUTE_TO_OTHER_TEAM`
 
-It classifies and suggests a destination only. It does not submit a complaint, contact a department, retrieve DOLE policies, interpret law, decide legal merits, or provide legal advice.
+The model performs category classification and team routing in one Ollama call using the JSON schema. The confidence value is a model-reported estimate, not a statistically calibrated probability; it should be evaluated against a labelled dataset before being used for automated decisions.
 
-## Department taxonomy
-The initial POC uses a configurable starter list:
-
-| Output code | Display name | Typical concerns |
+## Routing rules
+| Routed team | Typical concerns | Next action |
 |---|---|---|
-| `HR` | Human Resources | Leave, attendance, benefits, workplace conduct, harassment, employee relations |
-| `FINANCE_PAYROLL` | Finance / Payroll | Salary, 13th-month pay, payslips, deductions, withholding, reimbursements |
-| `LEGAL_COMPLIANCE` | Legal / Compliance | Formal legal/compliance review, alleged regulatory violations, formal DOLE/legal complaint escalation |
-| `ADMIN_OPERATIONS` | Administration / Operations | Facilities, supplies, office access, administrative services |
-| `IT` | IT / Technical Support | Devices, accounts, software, network, access systems |
-| `GENERAL_UNCLEAR` | General / Needs Manual Triage | Insufficient detail or no suitable destination |
+| HR | Leave, attendance, benefits, workplace conduct, harassment, employee relations | `ROUTE_TO_OTHER_TEAM` |
+| LEGAL | Formal legal review, regulatory concerns, formal DOLE/legal complaint matters | `ROUTE_TO_LEGAL_AI_ASSISTANT` |
+| ACCOUNTING | Salary, 13th-month pay, payslips, payroll deductions, tax withholding, reimbursements | `ROUTE_TO_OTHER_TEAM` |
+| IT_SUPPORT | Company accounts, devices, software, network, access systems | `ROUTE_TO_OTHER_TEAM` |
 
-The taxonomy is a POC assumption, not a verified organization chart. Confirm the actual departments and routing ownership with the participating office before deployment.
+The next-action mapping is also validated deterministically in Python: LEGAL must use `ROUTE_TO_LEGAL_AI_ASSISTANT`; all other teams must use `ROUTE_TO_OTHER_TEAM`.
 
-## Two-stage workflow
+## Workflow
 1. Validate the employee message.
-2. Stage 1 classifies complaint vs inquiry. Existing deterministic complaint patterns remain active; otherwise Qwen 3.5:4B classifies the message.
-3. Stage 2 sends the original message and Stage 1 label to Qwen 3.5:4B to select one receiving department.
-4. Python validates the department against the fixed enum and validates confidence/reason fields.
-5. Low-confidence department predictions are mapped to `GENERAL_UNCLEAR` for manual triage.
-6. The Streamlit UI shows both classifications and the routing rationale. It does not automatically send or disclose the message to any department.
+2. Send it to Qwen 3.5:4B with the combined system prompt and JSON schema.
+3. Parse the JSON response.
+4. Validate exact keys, enum values, confidence range, non-empty reason, and the team/next-action relationship.
+5. Display the structured decision in Streamlit.
 
 ## Model and tools
-Python, Ollama, `qwen3.5:4b`, JSON Schema structured output, deterministic temperature 0, Python-side validation, Streamlit, and pytest. The two stages use separate model calls so each output has a narrow task and independently validated schema.
+Python, Ollama, `qwen3.5:4b`, JSON Schema structured output, deterministic temperature 0, 2,048-token context window, Python-side validation, Streamlit, and pytest.
 
 ## Setup
 ```powershell
@@ -52,13 +50,10 @@ streamlit run capstone/case3/palaw_app.py
 pytest -q capstone/case3/test_palaw_classifier.py
 ```
 
-Unit tests mock the Ollama calls; they validate component logic but do not measure live model accuracy.
+Unit tests mock the Ollama call. They validate schema and routing logic but do not measure live model accuracy.
 
-## Guardrails and limitations
-- Only the two allowed message categories and six allowed department codes can pass validation.
-- Empty, overlong, malformed, or unsupported outputs are rejected.
-- User content is treated as untrusted input.
-- Low-confidence department routing goes to manual triage rather than a guessed department.
-- Complaint classification does not establish that a policy or law was violated.
-- The department list and routing rules must be adapted to the actual organization's structure.
-- Build a human-labelled Tagalog/English/Taglish evaluation set and report complaint recall, department macro-F1, and confusion matrices before operational use.
+## Limitations
+- The team taxonomy is a POC assumption and must be confirmed against the actual office structure.
+- The output is a routing recommendation; no email, ticket, or referral is sent.
+- A complaint label does not establish that a law or policy was violated.
+- Build a human-labelled Tagalog/English/Taglish evaluation set and measure category and team-routing performance before operational use.
