@@ -83,7 +83,7 @@ class DecisionSchemaTests(unittest.TestCase):
                 "routed_team": "HR",
                 "reason": "Leave question.",
                 "next_action": "ROUTE_TO_OTHER_TEAM",
-                "confidence": 0.9,
+                "unexpected": "extra field",
             }))
 
     def test_rejects_invalid_category(self):
