@@ -93,7 +93,7 @@ def validate_input(message: str) -> str:
     return message
 
 
-def parse_decision(raw: str) -> dict[str, str]:
+def parse_decision(raw: str) -> dict[str, str | float]:
     """Parse and strictly validate the exact requested decision schema."""
     try:
         data = json.loads(raw)
@@ -134,7 +134,7 @@ def parse_decision(raw: str) -> dict[str, str]:
     }
 
 
-def classify_and_route(message: str, model: str = MODEL) -> dict[str, str]:
+def classify_and_route(message: str, model: str = MODEL) -> dict[str, str | float]:
     """Run the single-call unified classification and routing decision."""
     cleaned = validate_input(message)
     response = ollama.chat(
