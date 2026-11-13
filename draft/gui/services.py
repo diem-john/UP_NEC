@@ -136,7 +136,10 @@ class PaLawEngine:
 
         self.agents = PaLawAgentSuite()
         self.graph = self.agents.build_graph(checkpointer=self.checkpointer)
-        from conversations import ConversationRepository, build_chat_graph
+        try:
+            from .conversations import ConversationRepository, build_chat_graph
+        except ImportError:
+            from conversations import ConversationRepository, build_chat_graph
         self.conversation_repository = ConversationRepository(legacy.DB_NAME)
         self.chat_graph = build_chat_graph(self.checkpointer)
 
