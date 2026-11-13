@@ -133,6 +133,7 @@ class PaLawEngine:
         checkpoint_path.parent.mkdir(parents=True, exist_ok=True)
         self._checkpointer_context = SqliteSaver.from_conn_string(str(checkpoint_path))
         self.checkpointer = self._checkpointer_context.__enter__()
+        self.checkpointer.setup()
 
         self.agents = PaLawAgentSuite()
         self.graph = self.agents.build_graph(checkpointer=self.checkpointer)
