@@ -4,6 +4,7 @@ from __future__ import annotations
 import sqlite3
 import sys
 import uuid
+from contextlib import closing
 from pathlib import Path
 from threading import RLock
 from typing import Any
@@ -20,7 +21,7 @@ class TicketRepository:
         self.database_path = Path(database_path or legacy.DB_NAME)
 
     def list_priority_sorted(self) -> list[dict[str, Any]]:
-        with sqlite3.connect(self.database_path) as connection:
+        with closing(sqlite3.connect(self.database_path)) as connection:
             connection.row_factory = sqlite3.Row
             rows = connection.execute(
                 """SELECT ticket_id, date_created, classification, priority,
@@ -33,7 +34,7 @@ class TicketRepository:
         return [dict(row) for row in rows]
 
     def get_by_id(self, ticket_id: str) -> dict[str, Any] | None:
-        with sqlite3.connect(self.database_path) as connection:
+        with closing(sqlite3.connect(self.database_path)) as connection:
             connection.row_factory = sqlite3.Row
             row = connection.execute(
                 "SELECT * FROM tickets WHERE ticket_id = ?", (ticket_id.strip(),)
