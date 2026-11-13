@@ -2,31 +2,68 @@
 from __future__ import annotations
 
 import sys
+from datetime import timedelta
 from pathlib import Path
-from dash import Dash, Input, Output, State, dash_table, dcc, html, no_update
+from flask import session
+from dash import Dash, Input, Output, State, callback_context, dash_table, dcc, html, no_update
 
 GUI_DIR = Path(__file__).resolve().parent
 if str(GUI_DIR) not in sys.path:
     sys.path.insert(0, str(GUI_DIR))
 from services import DaskTaskManager, PaLawEngine, TicketRepository  # noqa: E402
 from services import legacy  # noqa: E402
+from conversations import ConversationService  # noqa: E402
 
 engine = PaLawEngine()
 repository: TicketRepository = engine.repository
 task_manager = DaskTaskManager(engine)
+conversation_service = ConversationService(engine.conversation_repository, engine.chat_graph)
 
 NATURE_OPTIONS = [{"label": value, "value": key} for key, value in legacy.NATURE_OPTIONS.items()]
 app = Dash(__name__, title="PA-LAW | Policy Adviser", suppress_callback_exceptions=True)
 server = app.server
+server.secret_key = engine.conversation_repository.get_or_create_secret()
+server.config.update(
+    SESSION_COOKIE_HTTPONLY=True,
+    SESSION_COOKIE_SAMESITE="Lax",
+    PERMANENT_SESSION_LIFETIME=timedelta(days=365),
+)
+
+
+def current_owner_id() -> str:
+    session.permanent = True
+    if "palaw_owner_id" not in session:
+        import uuid
+        session["palaw_owner_id"] = uuid.uuid4().hex
+    return session["palaw_owner_id"]
+
+
+def render_chat_messages(messages):
+    if not messages:
+        return [html.Div([
+            html.H3("Welcome to PA-LAW"),
+            html.P("Ask a question about workplace concerns, labor policies, or the next steps for a concern."),
+            html.P("Your conversation is saved locally and restored when you return.", className="muted"),
+        ], className="chat-empty")]
+    return [
+        html.Div([
+            html.Div("You" if item["role"] == "user" else "PA-LAW", className="chat-role"),
+            html.Div(item["content"], className="chat-bubble-content"),
+            html.Div(item["created_at"], className="chat-timestamp"),
+        ], className=f"chat-message {item['role']}")
+        for item in messages
+    ]
 
 app.layout = html.Div(className="app-shell", children=[
     dcc.Store(id="active-job", storage_type="memory"),
+    dcc.Store(id="conversation-id", storage_type="local"),
     dcc.Interval(id="job-poll", interval=1200, n_intervals=0, disabled=True),
     html.Aside(className="sidebar", children=[
         html.Div([html.Div("⚖", className="brand-mark"), html.H2("PA-LAW"),
                   html.P("Policy Assistant for Labor and Welfare")], className="brand"),
         html.Div("WORKSPACE", className="nav-label"),
         dcc.Tabs(id="main-tabs", value="submit", vertical=True, className="nav-tabs", children=[
+            dcc.Tab(label="Chat with PA-LAW", value="chat"),
             dcc.Tab(label="Submit a concern", value="submit"),
             dcc.Tab(label="Ticket dashboard", value="dashboard"),
             dcc.Tab(label="Find a ticket", value="search"),
@@ -52,6 +89,22 @@ def card(title: str, body, subtitle: str | None = None):
 
 
 def page_layout(tab: str):
+    if tab == "chat":
+        return html.Div([
+            dcc.Interval(id="chat-init", interval=150, max_intervals=1, n_intervals=0),
+            card("Conversation with PA-LAW", html.Div([
+                html.Div(id="chat-history", className="chat-history"),
+                html.Div([
+                    dcc.Textarea(id="chat-input", className="chat-input",
+                                 placeholder="Type your message…", maxLength=10000),
+                    html.Div([
+                        html.Button("Send message", id="send-chat", n_clicks=0, className="primary-button"),
+                        html.Button("New conversation", id="new-chat", n_clicks=0, className="secondary-button"),
+                    ], className="chat-actions"),
+                    html.Div(id="chat-feedback", className="feedback"),
+                ], className="chat-composer"),
+            ]), "Your conversation is stored in the local SQLite database and isolated by a signed browser session.")
+        ])
     if tab == "submit":
         return html.Div([
             card("Submit a new concern", html.Div([
@@ -88,6 +141,43 @@ def page_layout(tab: str):
 @app.callback(Output("page-content", "children"), Input("main-tabs", "value"))
 def render_page(tab):
     return page_layout(tab)
+
+
+
+@app.callback(
+    Output("conversation-id", "data"), Output("chat-history", "children"),
+    Input("chat-init", "n_intervals"), State("conversation-id", "data"),
+    prevent_initial_call=True,
+)
+def restore_conversation(_ticks, stored_id):
+    owner_id = current_owner_id()
+    conversation_id, messages = conversation_service.restore(stored_id, owner_id)
+    return conversation_id, render_chat_messages(messages)
+
+
+@app.callback(
+    Output("conversation-id", "data", allow_duplicate=True),
+    Output("chat-history", "children", allow_duplicate=True),
+    Output("chat-input", "value"),
+    Output("chat-feedback", "children"),
+    Input("send-chat", "n_clicks"), Input("new-chat", "n_clicks"),
+    State("chat-input", "value"), State("conversation-id", "data"),
+    prevent_initial_call=True,
+)
+def handle_chat_actions(_send_clicks, _new_clicks, message, stored_id):
+    owner_id = current_owner_id()
+    triggered = callback_context.triggered_id
+    if triggered == "new-chat":
+        conversation_id, messages = conversation_service.restore(None, owner_id)
+        return conversation_id, render_chat_messages(messages), "", html.Div("Started a new private conversation.", className="status-message")
+    if triggered == "send-chat":
+        try:
+            conversation_id, _ = conversation_service.restore(stored_id, owner_id)
+            messages = conversation_service.send(conversation_id, owner_id, message or "")
+            return conversation_id, render_chat_messages(messages), "", html.Div("Response saved.", className="success-message")
+        except Exception as exc:
+            return no_update, no_update, no_update, html.Div(str(exc), className="error-message")
+    return no_update, no_update, no_update, no_update
 
 
 @app.callback(
