@@ -1,0 +1,10 @@
+dash>=2.18
+Flask>=3.0
+dask[distributed]>=2024.8
+langchain>=0.3
+langchain-core>=0.3
+langchain-ollama>=0.2
+langgraph>=0.2
+langgraph-checkpoint-sqlite>=2.0
+numpy>=1.26
+pydantic>=2.7
