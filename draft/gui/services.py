@@ -41,6 +41,76 @@ class TicketRepository:
         return dict(row) if row else None
 
 
+class PaLawAgentSuite:
+    """Class-based adapters for each specialized LangGraph agent node.
+
+    Agent behavior is delegated to the established, tested implementation in
+    Palaw_agentic.py; this class owns node composition and graph construction.
+    """
+    def intake(self, state):
+        return legacy.intake_agent(state)
+
+    def classify(self, state):
+        return legacy.classification_agent(state)
+
+    def assess_priority(self, state):
+        return legacy.priority_assessment_agent(state)
+
+    def route_department(self, state):
+        return legacy.department_routing_agent(state)
+
+    def assess_complexity(self, state):
+        return legacy.complexity_assessment_agent(state)
+
+    def create_ticket_id(self, state):
+        return legacy.create_ticket_id_node(state)
+
+    def retrieve_policy(self, state):
+        return legacy.policy_knowledge_agent(state)
+
+    def escalate(self, state):
+        return legacy.legal_escalation_agent(state)
+
+    def route_complaint_for_review(self, state):
+        return legacy.complaint_human_review_agent(state)
+
+    def persist_ticket(self, state):
+        return legacy.persist_ticket_node(state)
+
+    def build_graph(self):
+        from langgraph.graph import END, START, StateGraph
+        graph = StateGraph(legacy.ConcernState)
+        graph.add_node("intake_agent", self.intake)
+        graph.add_node("classification_agent", self.classify)
+        graph.add_node("priority_agent", self.assess_priority)
+        graph.add_node("routing_agent", self.route_department)
+        graph.add_node("complexity_agent", self.assess_complexity)
+        graph.add_node("create_ticket_id", self.create_ticket_id)
+        graph.add_node("policy_knowledge_agent", self.retrieve_policy)
+        graph.add_node("legal_escalation_agent", self.escalate)
+        graph.add_node("complaint_review_agent", self.route_complaint_for_review)
+        graph.add_node("persist_ticket", self.persist_ticket)
+        graph.add_edge(START, "intake_agent")
+        graph.add_edge("intake_agent", "classification_agent")
+        graph.add_edge("classification_agent", "priority_agent")
+        graph.add_edge("priority_agent", "routing_agent")
+        graph.add_edge("routing_agent", "complexity_agent")
+        graph.add_edge("complexity_agent", "create_ticket_id")
+        graph.add_conditional_edges(
+            "create_ticket_id", legacy.route_after_complexity,
+            {
+                "legal_escalation": "legal_escalation_agent",
+                "complaint_review": "complaint_review_agent",
+                "policy_knowledge": "policy_knowledge_agent",
+            },
+        )
+        graph.add_edge("legal_escalation_agent", "persist_ticket")
+        graph.add_edge("complaint_review_agent", "persist_ticket")
+        graph.add_edge("policy_knowledge_agent", "persist_ticket")
+        graph.add_edge("persist_ticket", END)
+        return graph.compile()
+
+
 class PaLawEngine:
     """Application service that owns the LangGraph workflow lifecycle."""
     def __init__(self, repository: TicketRepository | None = None,
@@ -50,7 +120,7 @@ class PaLawEngine:
         if initialize_knowledge:
             # Existing RAG layer falls back to keyword retrieval if embeddings fail.
             legacy.load_handbook_and_index()
-        self.graph = legacy.build_agentic_graph()
+        self.agents = PaLawAgentSuite()\n        self.graph = self.agents.build_graph()
 
     @staticmethod
     def validate_submission(nature_choice: str, description: str) -> tuple[str, str]:
