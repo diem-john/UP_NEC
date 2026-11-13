@@ -190,13 +190,20 @@ class DaskTaskManager:
             return {"state": "UNKNOWN", "message": "Processing task was not found."}
         if future.status == "finished":
             try:
-                return {"state": "FINISHED", "result": future.result()}
+                result = future.result()
+                with self._lock:
+                    self._futures.pop(job_id, None)
+                return {"state": "FINISHED", "result": result}
             except Exception as exc:
+                with self._lock:
+                    self._futures.pop(job_id, None)
                 return {"state": "ERROR", "message": str(exc)}
         if future.status in {"error", "cancelled"}:
             try:
                 future.result()
             except Exception as exc:
+                with self._lock:
+                    self._futures.pop(job_id, None)
                 return {"state": "ERROR", "message": str(exc)}
         return {"state": "RUNNING", "message": "PA-LAW agents are processing the concern."}
 
