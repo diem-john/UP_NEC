@@ -133,7 +133,8 @@ def page_layout(tab: str):
         ]))])
     return html.Div([card("About PA-LAW", html.Div([
         html.P("PA-LAW is a local, agentic policy-assistance proof of concept. It uses a LangGraph workflow with specialized agents for intake, classification, priority assessment, department routing, complexity assessment, policy retrieval, and escalation."),
-        html.Ul([html.Li("Dash provides the browser-based user interface."), html.Li("Dask Distributed runs workflows asynchronously and the interface polls their status."), html.Li("Ollama runs the configured local language and embedding models."), html.Li("SQLite stores concern tickets.")]),
+        html.Ul([html.Li("Dash provides the browser-based user interface."), html.Li("Dask Distributed runs workflows asynchronously and the interface polls their status."), html.Li("Ollama runs the configured local language and embedding models."), html.Li("SQLite stores concern tickets and user/assistant conversation history."),
+            html.Li("LangGraph SQLite checkpoints preserve each conversation thread across refreshes.")]),
         html.P("AI-generated drafts are preliminary. Complaints and complex or urgent concerns require authorized human review. The demo handbook is fictional; verify all policies before real deployment.", className="notice"),
     ]))])
 
