@@ -77,7 +77,7 @@ class PaLawAgentSuite:
     def persist_ticket(self, state):
         return legacy.persist_ticket_node(state)
 
-    def build_graph(self):
+    def build_graph(self, checkpointer=None):
         from langgraph.graph import END, START, StateGraph
         graph = StateGraph(legacy.ConcernState)
         graph.add_node("intake_agent", self.intake)
@@ -108,7 +108,7 @@ class PaLawAgentSuite:
         graph.add_edge("complaint_review_agent", "persist_ticket")
         graph.add_edge("policy_knowledge_agent", "persist_ticket")
         graph.add_edge("persist_ticket", END)
-        return graph.compile()
+        return graph.compile(checkpointer=checkpointer)
 
 
 class PaLawEngine:
@@ -120,8 +120,30 @@ class PaLawEngine:
         if initialize_knowledge:
             # Existing RAG layer falls back to keyword retrieval if embeddings fail.
             legacy.load_handbook_and_index()
+
+        # Keep the SQLite checkpointer open for the lifetime of the Dash server.
+        try:
+            from langgraph.checkpoint.sqlite import SqliteSaver
+        except ImportError as exc:
+            raise RuntimeError(
+                "SQLite LangGraph checkpoint support is missing. "
+                "Install draft/requirements_gui.txt."
+            ) from exc
+        checkpoint_path = Path(str(legacy.DB_NAME) + ".checkpoints.sqlite")
+        checkpoint_path.parent.mkdir(parents=True, exist_ok=True)
+        self._checkpointer_context = SqliteSaver.from_conn_string(str(checkpoint_path))
+        self.checkpointer = self._checkpointer_context.__enter__()
+
         self.agents = PaLawAgentSuite()
-        self.graph = self.agents.build_graph()
+        self.graph = self.agents.build_graph(checkpointer=self.checkpointer)
+        from conversations import ConversationRepository, build_chat_graph
+        self.conversation_repository = ConversationRepository(legacy.DB_NAME)
+        self.chat_graph = build_chat_graph(self.checkpointer)
+
+    def close(self) -> None:
+        if getattr(self, "_checkpointer_context", None):
+            self._checkpointer_context.__exit__(None, None, None)
+            self._checkpointer_context = None
 
     @staticmethod
     def validate_submission(nature_choice: str, description: str) -> tuple[str, str]:
@@ -134,24 +156,29 @@ class PaLawEngine:
             raise ValueError("The description must not exceed 10,000 characters.")
         return choice, text
 
-    def process_concern(self, nature_choice: str, description: str) -> dict[str, Any]:
+    def process_concern(self, nature_choice: str, description: str,
+                        conversation_id: str | None = None) -> dict[str, Any]:
         choice, text = self.validate_submission(nature_choice, description)
         initial_state: legacy.ConcernState = {
             "nature_choice": choice,
             "nature_of_concern": legacy.NATURE_OPTIONS[choice],
             "description": text,
         }
-        return dict(self.graph.invoke(initial_state))
+        thread_id = conversation_id or str(uuid.uuid4())
+        return dict(self.graph.invoke(
+            initial_state,
+            config={"configurable": {"thread_id": thread_id}},
+        ))
 
 
 # Dask uses an in-process LocalCluster. Keeping the engine in this process avoids
 # serializing the compiled LangGraph graph or opening a second copy of Ollama.
 _SHARED_ENGINE: PaLawEngine | None = None
 
-def _run_engine_task(nature_choice: str, description: str) -> dict[str, Any]:
+def _run_engine_task(nature_choice: str, description: str, conversation_id: str) -> dict[str, Any]:
     if _SHARED_ENGINE is None:
         raise RuntimeError("PA-LAW engine has not been initialized.")
-    return _SHARED_ENGINE.process_concern(nature_choice, description)
+    return _SHARED_ENGINE.process_concern(nature_choice, description, conversation_id)
 
 
 class DaskTaskManager:
@@ -177,7 +204,7 @@ class DaskTaskManager:
         choice, text = PaLawEngine.validate_submission(nature_choice, description)
         job_id = uuid.uuid4().hex
         future = self.client.submit(
-            _run_engine_task, choice, text,
+            _run_engine_task, choice, text, job_id,
             key=f"palaw-concern-{job_id}", pure=False,
         )
         with self._lock:
