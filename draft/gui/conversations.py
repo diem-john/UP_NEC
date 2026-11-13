@@ -213,7 +213,22 @@ def build_chat_graph(checkpointer):
     """A checkpointed conversational graph; each thread_id is one conversation."""
     def respond(state: ChatState):
         recent = state["messages"][-20:]
-        prompt = [SystemMessage(content=ConversationService.SYSTEM_PROMPT), *recent]
+        latest_user = next(
+            (message for message in reversed(recent) if isinstance(message, HumanMessage)),
+            None,
+        )
+        policy_context = ""
+        if latest_user is not None:
+            try:
+                excerpts = legacy.retrieve_handbook(str(latest_user.content), top_k=3)
+                if excerpts:
+                    policy_context = "\\n\\nRelevant handbook excerpts (reference only; verify before relying on them):\\n" + "\\n\\n".join(
+                        item.get("text", "") for item in excerpts
+                    )
+            except Exception:
+                policy_context = ""
+        system_message = ConversationService.SYSTEM_PROMPT + policy_context
+        prompt = [SystemMessage(content=system_message), *recent]
         response = legacy.llm.invoke(prompt)
         content = response.content if hasattr(response, "content") else str(response)
         return {"messages": [AIMessage(content=str(content))]}
