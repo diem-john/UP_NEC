@@ -1,6 +1,7 @@
 import sqlite3
 import tempfile
 import unittest
+from contextlib import closing
 from pathlib import Path
 
 from draft.gui.services import PaLawEngine, TicketRepository
@@ -31,7 +32,10 @@ class TicketRepositoryTests(unittest.TestCase):
     def setUp(self):
         self.temp_dir = tempfile.TemporaryDirectory()
         self.db_path = Path(self.temp_dir.name) / "tickets.db"
-        with sqlite3.connect(self.db_path) as conn:
+        # sqlite3.Connection's context manager commits/rolls back but does not
+        # close the connection. Explicitly close it before the temp directory
+        # is cleaned up (required on Windows).
+        with closing(sqlite3.connect(self.db_path)) as conn:
             conn.execute("""CREATE TABLE tickets (
                 ticket_id TEXT PRIMARY KEY, date_created TEXT,
                 classification TEXT, priority TEXT, complexity TEXT,
@@ -41,6 +45,7 @@ class TicketRepositoryTests(unittest.TestCase):
                 ("T-LOW", "2026-01-01", "INQUIRY", "LOW", "NOT COMPLEX", "HR", "OPEN", "HR", None),
                 ("T-URGENT", "2026-01-02", "COMPLAINT", "URGENT", "COMPLEX", "LEGAL", "OPEN", "Legal", None),
             ])
+            conn.commit()
         self.repository = TicketRepository(self.db_path)
 
     def tearDown(self):
