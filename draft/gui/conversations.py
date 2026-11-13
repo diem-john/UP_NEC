@@ -222,7 +222,7 @@ def build_chat_graph(checkpointer):
             try:
                 excerpts = legacy.retrieve_handbook(str(latest_user.content), top_k=3)
                 if excerpts:
-                    policy_context = "\\n\\nRelevant handbook excerpts (reference only; verify before relying on them):\\n" + "\\n\\n".join(
+                    policy_context = "\n\nRelevant handbook excerpts (reference only; verify before relying on them):\n" + "\n\n".join(
                         item.get("text", "") for item in excerpts
                     )
             except Exception:
