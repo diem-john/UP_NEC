@@ -120,7 +120,8 @@ class PaLawEngine:
         if initialize_knowledge:
             # Existing RAG layer falls back to keyword retrieval if embeddings fail.
             legacy.load_handbook_and_index()
-        self.agents = PaLawAgentSuite()\n        self.graph = self.agents.build_graph()
+        self.agents = PaLawAgentSuite()
+        self.graph = self.agents.build_graph()
 
     @staticmethod
     def validate_submission(nature_choice: str, description: str) -> tuple[str, str]:
