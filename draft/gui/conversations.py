@@ -11,7 +11,10 @@ from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
 from langgraph.graph import END, START, StateGraph
 from langgraph.graph.message import add_messages
 
-from services import legacy
+try:
+    from .services import legacy
+except ImportError:
+    from services import legacy
 
 
 def utc_now() -> str:
