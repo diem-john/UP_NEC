@@ -5,7 +5,8 @@ This GUI is a new presentation and application layer for the existing PA-LAW imp
 ## Architecture
 
 - `gui/services.py` — object-oriented application services:
-  - `PaLawEngine` owns the LangGraph lifecycle and validates submissions.
+  - `PaLawAgentSuite` exposes the seven agent nodes as class methods and assembles the LangGraph workflow.
+  - `PaLawEngine` owns the workflow lifecycle and validates submissions.
   - `TicketRepository` encapsulates ticket queries.
   - `DaskTaskManager` schedules workflow execution asynchronously.
 - `gui/app.py` — Dash web interface, callbacks, submission status polling, ticket dashboard, and ticket lookup.
@@ -25,6 +26,16 @@ ollama serve
 ```
 
 Ensure the configured LLM and embedding models are installed in Ollama. The defaults are defined in `draft/Palaw_agentic.py` and can be overridden with `OLLAMA_MODEL`, `OLLAMA_EMBEDDING_MODEL`, and `OLLAMA_BASE_URL`.
+
+## Tests
+
+Run the service-layer unit tests from the repository root:
+
+```powershell
+pytest -q draft/gui/tests
+```
+
+These tests cover submission validation and SQLite repository behavior; they do not call Ollama or measure LLM quality.
 
 ## Launch
 
