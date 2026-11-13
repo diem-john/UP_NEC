@@ -1,6 +1,7 @@
 """Persistent, session-isolated PA-LAW conversations and chat graph."""
 from __future__ import annotations
 
+import logging
 import sqlite3
 import uuid
 from datetime import datetime, timezone
@@ -10,6 +11,8 @@ from typing import Annotated, Any, TypedDict
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
 from langgraph.graph import END, START, StateGraph
 from langgraph.graph.message import add_messages
+
+logger = logging.getLogger(__name__)
 
 try:
     from .services import legacy
@@ -199,11 +202,18 @@ class ConversationService:
             answer = result["messages"][-1].content
             if not isinstance(answer, str):
                 answer = str(answer)
-        except Exception:
+        except Exception as exc:
+            # Keep the user-facing message generic, but preserve the full traceback
+            # in the terminal so local model, connection, and graph errors are diagnosable.
+            logger.exception(
+                "PA-LAW chat response failed (conversation_id=%s, error_type=%s): %s",
+                conversation_id, type(exc).__name__, exc,
+            )
             answer = (
                 "I couldn't complete that response because the local language model "
                 "or conversation workflow returned an error. Your message has been "
-                "saved; please try again after checking that Ollama is running."
+                "saved; please check the PA-LAW terminal output for the underlying "
+                "error before trying again."
             )
         self.repository.add_message(conversation_id, owner_id, "assistant", answer)
         return self.repository.get_messages(conversation_id, owner_id)
@@ -226,6 +236,7 @@ def build_chat_graph(checkpointer):
                         item.get("text", "") for item in excerpts
                     )
             except Exception:
+                logger.exception("PA-LAW handbook retrieval failed; continuing without retrieved context.")
                 policy_context = ""
         system_message = ConversationService.SYSTEM_PROMPT + policy_context
         prompt = [SystemMessage(content=system_message), *recent]
