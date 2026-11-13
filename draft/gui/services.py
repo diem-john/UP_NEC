@@ -152,14 +152,11 @@ class PaLawEngine:
 
     @staticmethod
     def validate_submission(nature_choice: str, description: str) -> tuple[str, str]:
-        choice, text = str(nature_choice).strip(), str(description or "").strip()
-        if choice not in legacy.NATURE_OPTIONS:
-            raise ValueError("Select a valid nature of concern.")
-        if len(text) < 10:
-            raise ValueError("Please describe the concern using at least 10 characters.")
-        if len(text) > 10000:
-            raise ValueError("The description must not exceed 10,000 characters.")
-        return choice, text
+        try:
+            from ..security.guardrails import validate_concern_input
+        except ImportError:
+            from security.guardrails import validate_concern_input
+        return validate_concern_input(nature_choice, description)
 
     def process_concern(self, nature_choice: str, description: str,
                         conversation_id: str | None = None) -> dict[str, Any]:
