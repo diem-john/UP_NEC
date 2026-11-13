@@ -1,0 +1,5 @@
+# From repository root:
+#   pip install -r requirements.txt
+#   pip install -r draft/requirements_gui.txt
+# Dash is already declared in the repository root requirements.
+dask[distributed]>=2024.8
