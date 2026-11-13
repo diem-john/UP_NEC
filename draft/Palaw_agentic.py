@@ -50,6 +50,7 @@ HANDBOOK_PATH = BASE_DIR / "Dummy_Company_Policy_Handbook.md"
 OLLAMA_BASE_URL = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
 OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "llama3.2:3b")
 EMBEDDING_MODEL = os.getenv("OLLAMA_EMBEDDING_MODEL", "nomic-embed-text")
+OLLAMA_NUM_CTX = int(os.getenv("OLLAMA_NUM_CTX", "4096"))
 
 LEGAL_CONSULTANTS = [
     {"name": "Legal Consultant 1", "email": "legal1@company.com"},
@@ -244,7 +245,7 @@ def build_llm():
         model=OLLAMA_MODEL,
         base_url=OLLAMA_BASE_URL,
         temperature=0,
-        num_ctx=8192,
+        num_ctx=OLLAMA_NUM_CTX,
     )
 
 
