@@ -63,6 +63,7 @@ NATURE_OPTIONS = {
     "3": "Concern About Executive and Management",
     "4": "Violation of Company Policy",
     "5": "Life-Threatening Concern",
+    "6": "Others",
 }
 
 # Preserve the priority mapping from the original implementation.
@@ -72,6 +73,7 @@ PRIORITY_BY_NATURE = {
     "3": "HIGH",
     "4": "URGENT",
     "5": "CRITICAL",
+    "6": "MEDIUM",
 }
 
 DEPARTMENTS = {
@@ -640,6 +642,7 @@ or MANAGEMENT as the primary department and explain why.
                 "3": "MANAGEMENT",
                 "4": "COMPLIANCE",
                 "5": "SAFETY",
+                "6": "HR",
             }
             scores[fallback[state["nature_choice"]]] = 1
 
