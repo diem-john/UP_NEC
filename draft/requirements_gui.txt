@@ -3,3 +3,6 @@
 #   pip install -r draft/requirements_gui.txt
 # Dash is already declared in the repository root requirements.
 dask[distributed]>=2024.8
+
+# LangGraph SQLite checkpoint persistence for conversation/workflow state
+langgraph-checkpoint-sqlite>=2.0.0
