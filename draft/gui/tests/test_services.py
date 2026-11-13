@@ -3,7 +3,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from services import PaLawEngine, TicketRepository
+from draft.gui.services import PaLawEngine, TicketRepository
 
 
 class SubmissionValidationTests(unittest.TestCase):
